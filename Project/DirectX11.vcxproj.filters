@@ -3,17 +3,20 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Comfort\Effekseer\Effect.cxx">
-      <Filter>Effekseer</Filter>
+      <Filter>Comfort\Effekseer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="Effekseer">
+    <Filter Include="Comfort">
+      <UniqueIdentifier>{af6ce1d9-f6cc-47fe-bdd6-110cfcef5db5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Comfort\Effekseer">
       <UniqueIdentifier>{4f268ad9-5e98-4d91-9ed1-25980a8bde01}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Comfort\Effekseer\Effect.hxx">
-      <Filter>Effekseer</Filter>
+      <Filter>Comfort\Effekseer</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
