@@ -29,18 +29,20 @@
 #pragma comment(lib, "VS2015/Release/EffekseerSoundXAudio2.lib" )
 #endif
 
+#include"Comfort\Effekseer\Effect.hxx"
+
 //----------------------------------------------------------------------------------
 //
 //----------------------------------------------------------------------------------
 static HWND g_window_handle = NULL;
 static int g_window_width = 800;
 static int g_window_height = 600;
-static ::Effekseer::Manager*			g_manager = NULL;
-static ::EffekseerRenderer::Renderer*	g_renderer = NULL;
-static ::EffekseerSound::Sound*			g_sound = NULL;
-static ::Effekseer::Effect*				g_effect = NULL;
-static ::Effekseer::Handle				g_handle = -1;
-static ::Effekseer::Vector3D			g_position;
+//static ::Effekseer::Manager*			g_manager = NULL;
+//static ::EffekseerRenderer::Renderer*	g_renderer = NULL;
+//static ::EffekseerSound::Sound*			g_sound = NULL;
+//static ::Effekseer::Effect*				g_effect = NULL;
+//static ::Effekseer::Handle				g_handle = -1;
+//static ::Effekseer::Vector3D			g_position;
 
 static ID3D11Device*				g_device = NULL;
 static ID3D11DeviceContext*			g_context = NULL;
@@ -55,6 +57,15 @@ static ID3D11DepthStencilView*		g_depthStencilView = NULL;
 
 static IXAudio2*						g_xa2 = NULL;
 static IXAudio2MasteringVoice*			g_xa2_master = NULL;
+
+::Comfort::Effect gMyEffect;
+
+
+::Comfort::EfkRenderer render;
+::Comfort::EfkManager manager;
+::Comfort::EffectDatabase db;
+::Comfort::EfkObject obj;
+::Comfort::EfkObject obj2;
 
 //----------------------------------------------------------------------------------
 //
@@ -256,20 +267,25 @@ void MainLoop()
 			//g_manager->AddLocation( g_handle, ::Effekseer::Vector3D( 0.2f, 0.0f, 0.0f ) );
 			// エフェクトの更新処理を行う
 			
-			g_manager->Update();
+			//g_manager->Update();
 			
 			float ClearColor[] = {0.0f, 0.0f, 0.0f, 1.0f};
 			g_context->ClearRenderTargetView( g_renderTargetView, ClearColor);
 			g_context->ClearDepthStencilView( g_depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+			//gMyEffect.Update();
+			//gMyEffect.Render();
 
-			// エフェクトの描画開始処理を行う。
-			g_renderer->BeginRendering();
+			manager.Update();
+			render.RenderAll(&manager);
 
-			// エフェクトの描画を行う。
-			g_manager->Draw();
+			//// エフェクトの描画開始処理を行う。
+			//g_renderer->BeginRendering();
 
-			// エフェクトの描画終了処理を行う。
-			g_renderer->EndRendering();
+			//// エフェクトの描画を行う。
+			//g_manager->Draw();
+
+			//// エフェクトの描画終了処理を行う。
+			//g_renderer->EndRendering();
 
 			
 			g_swapChain->Present(4, 0);
@@ -283,8 +299,69 @@ void MainLoop()
 int main()
 {
 	InitWindow();
+	{
+		using namespace Comfort;
+
+		render.Initialize(g_device, g_context);
+		manager.Initialize(render.GetRenderer());
+		db.Initialize(manager.GetManager());
+		db.Load("test.efk",0);
+
+		//カメラ設定
+		EffectProjection proj;
+		EffectCamera cam;
+
+		proj.mAngle = 90.0f / 180.0f * 3.14f;
+		proj.mWidth = g_window_width;
+		proj.mHeight = g_window_height;
+		proj.mNear = 1.0f;
+		proj.mFar = 50.0f;
+
+		cam.mEye = { 10.0f,5.0f,20.0f };
+		cam.mLookAt = { 0.0f,0.0f,0.0f };
+		cam.mUp = { 0.0f,1.0f,0.0f };
+
+		render.SetCamera(&cam);
+		render.SetProjection(&proj);
+
+		decltype(auto) lEfk = db.Get(0);
+		//マネージャ登録
+		obj.SetManager(&manager);
+		obj2.SetManager(&manager);
+		//エフェクト登録
+		obj.SetEffect(lEfk);
+		obj2.SetEffect(lEfk);
+		//リソース設定
+		obj.SetPosition({ 0.0f,0.0f,0.0f });
+		obj2.SetPosition({ 6.0f,0.0f,0.0f });
+
+	}
+
+
 	
-	// 描画用インスタンスの生成
+	gMyEffect.CreateRenderer(g_device, g_context);
+	gMyEffect.CreateManager();
+	gMyEffect.SetRenderFunction();
+	gMyEffect.SetTextureLoader();
+
+	gMyEffect.CreateSound(g_xa2);
+	gMyEffect.SetSoundPlayer();
+	gMyEffect.SetSoundLoader();
+
+	gMyEffect.SetLocation({ 0.0f,0.0f,0.0f });
+	gMyEffect.mCamera.mEye = { 10.0f,5.0f,20.0f };
+	gMyEffect.mCamera.mLookAt = gMyEffect.mPosition;
+	gMyEffect.mCamera.mUp = { 0.0f,1.0f,0.0f };
+
+	gMyEffect.mProjection.mAngle = 90.0f / 180.0f * 3.14f;
+	gMyEffect.mProjection.mWidth = g_window_width;
+	gMyEffect.mProjection.mHeight = g_window_height;
+	gMyEffect.mProjection.mNear = 1.0f;
+	gMyEffect.mProjection.mFar = 50.0f;
+
+	gMyEffect.Load("test.efk");
+	gMyEffect.Play();
+/*	// 描画用インスタンスの生成
 	g_renderer = ::EffekseerRendererDX11::Renderer::Create( g_device, g_context, 2000 );
 	
 	// エフェクト管理用インスタンスの生成
@@ -311,40 +388,43 @@ int main()
 	// 音再生用インスタンスからサウンドデータの読込機能を設定
 	// 独自拡張可能、現在はファイルから読み込んでいる。
 	g_manager->SetSoundLoader( g_sound->CreateSoundLoader() );
+	*/
+	//// 視点位置を確定
+	//g_position = ::Effekseer::Vector3D( 10.0f, 5.0f, 20.0f );
 
-	// 視点位置を確定
-	g_position = ::Effekseer::Vector3D( 10.0f, 5.0f, 20.0f );
+	//// 投影行列を設定
+	//g_renderer->SetProjectionMatrix(
+	//	::Effekseer::Matrix44().PerspectiveFovRH( 90.0f / 180.0f * 3.14f, (float)g_window_width / (float)g_window_height, 1.0f, 50.0f ) );
+	//
+	//// カメラ行列を設定
+	//g_renderer->SetCameraMatrix(
+	//	::Effekseer::Matrix44().LookAtRH( g_position, ::Effekseer::Vector3D( 0.0f, 0.0f, 0.0f ), ::Effekseer::Vector3D( 0.0f, 1.0f, 0.0f ) ) );
+	//
+	//// エフェクトの読込
+	//g_effect = Effekseer::Effect::Create( g_manager, (const EFK_CHAR*)L"test.efk" );
 
-	// 投影行列を設定
-	g_renderer->SetProjectionMatrix(
-		::Effekseer::Matrix44().PerspectiveFovRH( 90.0f / 180.0f * 3.14f, (float)g_window_width / (float)g_window_height, 1.0f, 50.0f ) );
-
-	// カメラ行列を設定
-	g_renderer->SetCameraMatrix(
-		::Effekseer::Matrix44().LookAtRH( g_position, ::Effekseer::Vector3D( 0.0f, 0.0f, 0.0f ), ::Effekseer::Vector3D( 0.0f, 1.0f, 0.0f ) ) );
-	
-	// エフェクトの読込
-	g_effect = Effekseer::Effect::Create( g_manager, (const EFK_CHAR*)L"test.efk" );
-
-	// エフェクトの再生
-	g_handle = g_manager->Play( g_effect, 0, 0, 0 );
-
+	//// エフェクトの再生
+	//g_handle = g_manager->Play( g_effect, 0, 0, 0 );
+	obj.Play();
+	obj2.Play();
 	MainLoop();
-	
+	obj.Stop();
+	obj2.Stop();
 	// エフェクトの停止
-	g_manager->StopEffect( g_handle );
+	gMyEffect.Stop();
+//	g_manager->StopEffect( g_handle );
+	gMyEffect.Release();
+	//// エフェクトの破棄
+	//ES_SAFE_RELEASE( g_effect );
 
-	// エフェクトの破棄
-	ES_SAFE_RELEASE( g_effect );
+	//// 先にエフェクト管理用インスタンスを破棄
+	//g_manager->Destroy();
 
-	// 先にエフェクト管理用インスタンスを破棄
-	g_manager->Destroy();
+	//// 次に音再生用インスタンスを破棄
+	//g_sound->Destory();
 
-	// 次に音再生用インスタンスを破棄
-	g_sound->Destory();
-
-	// 次に描画用インスタンスを破棄
-	g_renderer->Destory();
+	//// 次に描画用インスタンスを破棄
+	//g_renderer->Destory();
 
 	// XAudio2の解放
 	if( g_xa2_master != NULL )
