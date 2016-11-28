@@ -6,7 +6,10 @@
 #include<unordered_map>
 namespace Comfort {
 
-
+	struct EffectData {
+		::Effekseer::Effect* mEffect;
+		int mFrameCount;
+	};
 
 	//Effekseerローダ
 	class EffectDatabase {
@@ -19,9 +22,12 @@ namespace Comfort {
 		bool IsExist(const int32_t aID)const;
 		void CleanAll();
 		void Clean(const int32_t aID);
+
+
+
 	private:
 		//識別ID,エフェクト
-		std::unordered_map<int32_t, ::Effekseer::Effect*>mDatabase;
+		std::unordered_map<int32_t, EffectData>mDatabase;
 		::Effekseer::Manager* mManagerPtr;
 	};
 
@@ -56,15 +62,22 @@ namespace Comfort {
 		void SetPosition(const ::Effekseer::Vector3D& aPosition);
 		void AddPosition(const ::Effekseer::Vector3D& aPosition);
 
-		void Play();
-		void Stop();
+		//void Play();
+		//void Stop();
+
+		bool IsPlaying();
+
+		::Effekseer::Vector3D* GetPosition();
+		::Effekseer::Effect* GetEffect();
+		void SetHandle(::Effekseer::Handle aHandle);
+		::Effekseer::Handle GetHandle();
 	private:
 		::Effekseer::Effect* mEffect;
 		::Effekseer::Handle mHandle = -1;
 		::Effekseer::Vector3D mPosition;	//エフェクト座標
 		//再生登録したマネージャが入る
-		::Effekseer::Manager* mParentManager;
-
+		EfkManager* mParentManager;
+		int32_t mFrameCount;
 
 	};
 
@@ -73,7 +86,16 @@ namespace Comfort {
 		void Initialize( ::EffekseerRenderer::Renderer*&aRenderer, const int aInstanceMax = 2000);
 		::Effekseer::Manager*& GetManager();
 		::Effekseer::Manager* mManager;
+		//エフェクトを再生する
+		void Play(EfkObject* aEffect, const bool aIsLoop);
+		//エフェクトを停止する
+		void Stop(EfkObject* aEffect);
+		
 		void Update();
+		//ループさせない再生中のエフェクトが入る
+		std::unordered_map<::Effekseer::Handle, EfkObject*> mRegisteredEffectsNoLoop;
+		//ループさせる再生中のエフェクトが入る
+		std::unordered_map<::Effekseer::Handle, EfkObject*> mRegisteredEffectsLoop;
 	};
 
 	class EfkRenderer {

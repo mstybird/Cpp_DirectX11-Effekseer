@@ -58,9 +58,6 @@ static ID3D11DepthStencilView*		g_depthStencilView = NULL;
 static IXAudio2*						g_xa2 = NULL;
 static IXAudio2MasteringVoice*			g_xa2_master = NULL;
 
-::Comfort::Effect gMyEffect;
-
-
 ::Comfort::EfkRenderer render;
 ::Comfort::EfkManager manager;
 ::Comfort::EffectDatabase db;
@@ -338,29 +335,19 @@ int main()
 	}
 
 
-	
-	gMyEffect.CreateRenderer(g_device, g_context);
-	gMyEffect.CreateManager();
-	gMyEffect.SetRenderFunction();
-	gMyEffect.SetTextureLoader();
+	//gMyEffect.SetLocation({ 0.0f,0.0f,0.0f });
+	//gMyEffect.mCamera.mEye = { 10.0f,5.0f,20.0f };
+	//gMyEffect.mCamera.mLookAt = gMyEffect.mPosition;
+	//gMyEffect.mCamera.mUp = { 0.0f,1.0f,0.0f };
 
-	gMyEffect.CreateSound(g_xa2);
-	gMyEffect.SetSoundPlayer();
-	gMyEffect.SetSoundLoader();
+	//gMyEffect.mProjection.mAngle = 90.0f / 180.0f * 3.14f;
+	//gMyEffect.mProjection.mWidth = g_window_width;
+	//gMyEffect.mProjection.mHeight = g_window_height;
+	//gMyEffect.mProjection.mNear = 1.0f;
+	//gMyEffect.mProjection.mFar = 50.0f;
 
-	gMyEffect.SetLocation({ 0.0f,0.0f,0.0f });
-	gMyEffect.mCamera.mEye = { 10.0f,5.0f,20.0f };
-	gMyEffect.mCamera.mLookAt = gMyEffect.mPosition;
-	gMyEffect.mCamera.mUp = { 0.0f,1.0f,0.0f };
-
-	gMyEffect.mProjection.mAngle = 90.0f / 180.0f * 3.14f;
-	gMyEffect.mProjection.mWidth = g_window_width;
-	gMyEffect.mProjection.mHeight = g_window_height;
-	gMyEffect.mProjection.mNear = 1.0f;
-	gMyEffect.mProjection.mFar = 50.0f;
-
-	gMyEffect.Load("test.efk");
-	gMyEffect.Play();
+	//gMyEffect.Load("test.efk");
+	//gMyEffect.Play();
 /*	// 描画用インスタンスの生成
 	g_renderer = ::EffekseerRendererDX11::Renderer::Create( g_device, g_context, 2000 );
 	
@@ -405,15 +392,12 @@ int main()
 
 	//// エフェクトの再生
 	//g_handle = g_manager->Play( g_effect, 0, 0, 0 );
-	obj.Play();
-	obj2.Play();
+	manager.Play(&obj, false);
+	manager.Play(&obj2, true);
 	MainLoop();
-	obj.Stop();
-	obj2.Stop();
+	manager.Stop(&obj);
+	manager.Stop(&obj2);
 	// エフェクトの停止
-	gMyEffect.Stop();
-//	g_manager->StopEffect( g_handle );
-	gMyEffect.Release();
 	//// エフェクトの破棄
 	//ES_SAFE_RELEASE( g_effect );
 

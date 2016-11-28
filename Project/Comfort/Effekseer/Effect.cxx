@@ -71,6 +71,7 @@ bool Comfort::Effect::Load(const char * aFileName)
 	wchar_t lTmpWStr[FILENAME_MAX];
 	mbstowcs(lTmpWStr, aFileName, strlen(aFileName) + 1);
 	mEffect = ::Effekseer::Effect::Create(mManager, (const EFK_CHAR*)lTmpWStr);
+
 	return mEffect != nullptr;
 }
 
@@ -84,6 +85,7 @@ void Comfort::Effect::Play()
 	);
 
 	mHandle = mManager->Play(mEffect, mPosition.X, mPosition.Y, mPosition.Z);
+	mManager->Flip();
 }
 
 void Comfort::Effect::Stop()
@@ -102,7 +104,9 @@ void Comfort::Effect::Release()
 
 void Comfort::Effect::Update()
 {
-	mManager->Update();
+//	mManager->Update();
+
+
 }
 
 void Comfort::Effect::Render()
@@ -138,9 +142,21 @@ bool Comfort::EffectDatabase::Load(const char * aFileName, const int32_t aRegist
 	mbstowcs(lTmpWStr, aFileName, strlen(aFileName) + 1);
 	auto mEffect = ::Effekseer::Effect::Create(mManagerPtr, (const EFK_CHAR*)lTmpWStr);
 
+	int lFrameCount = 0;
+	auto lHandle = mManagerPtr->Play(mEffect, 0, 0, 0);
+
+	//フレーム数取得
+	while (mManagerPtr->GetInstanceCount(lHandle) != 0) {
+		mManagerPtr->BeginUpdate();
+		mManagerPtr->UpdateHandle(lHandle);
+		mManagerPtr->EndUpdate();
+		++lFrameCount;
+	}
+
 	//読み込めたら登録
 	if (mEffect != nullptr) {
-		mDatabase[aRegistID] = mEffect;
+		mDatabase[aRegistID].mEffect = mEffect;
+		mDatabase[aRegistID].mFrameCount = lFrameCount;
 	}
 
 	return mEffect != nullptr;
@@ -155,7 +171,7 @@ bool Comfort::EffectDatabase::Load(const char * aFileName, const int32_t aRegist
 	}
 
 
-	return mDatabase.at(aID);
+	return mDatabase.at(aID).mEffect;
 }
 
 bool Comfort::EffectDatabase::IsExist(const int32_t aID)const
@@ -170,6 +186,8 @@ void Comfort::EffectDatabase::CleanAll()
 void Comfort::EffectDatabase::Clean(const int32_t aID)
 {
 }
+
+
 
 void Comfort::EfkManager::Initialize(::EffekseerRenderer::Renderer *& aRenderer, const int aInstanceMax)
 {
@@ -190,9 +208,55 @@ void Comfort::EfkManager::Initialize(::EffekseerRenderer::Renderer *& aRenderer,
 	return mManager;
 }
 
+void Comfort::EfkManager::Play(EfkObject * aEffect, const bool aIsLoop)
+{
+	auto lPosition = aEffect->GetPosition();
+	auto lHandle = mManager->Play(aEffect->GetEffect(), lPosition->X, lPosition->Y, lPosition->Z);
+	aEffect->SetHandle(lHandle);
+	if (aIsLoop == true) {
+		mRegisteredEffectsLoop[lHandle] = aEffect;
+	}
+	else {
+		mRegisteredEffectsNoLoop[lHandle] = aEffect;
+	}
+}
+
+void Comfort::EfkManager::Stop(EfkObject * aEffect)
+{
+	mManager->StopEffect(aEffect->GetHandle());
+}
+
 void Comfort::EfkManager::Update()
 {
-	mManager->Update();
+	mManager->BeginUpdate();
+	//ループするエフェクトは再生終了時に再度再生する
+
+	auto lEfkLoopBegin = mRegisteredEffectsLoop.begin();
+	auto lEfkLoopEnd = mRegisteredEffectsLoop.end();
+
+	for (auto lEffect = lEfkLoopBegin; lEffect != lEfkLoopEnd; ++lEffect) {
+		mManager->UpdateHandle(lEffect->first);
+		if (mManager->GetInstanceCount(lEffect->first) == 0) {
+			this->Play(lEffect->second, true);
+			mRegisteredEffectsLoop.erase(lEffect++);
+		}
+	}
+
+	auto lEfkNoLoopBegin = mRegisteredEffectsNoLoop.begin();
+	auto lEfkNoLoopEnd = mRegisteredEffectsNoLoop.end();
+
+	for (auto lEffect = lEfkNoLoopBegin; lEffect != lEfkNoLoopEnd; ) {
+		mManager->UpdateHandle(lEffect->first);
+		if (mManager->GetInstanceCount(lEffect->first) == 0) {
+			mRegisteredEffectsNoLoop.erase(lEffect++);
+		}
+		else {
+			++lEffect;
+		}
+	}
+
+	mManager->EndUpdate();
+
 }
 
 void Comfort::EfkObject::SetEffect(::Effekseer::Effect *& aEffect)
@@ -202,7 +266,7 @@ void Comfort::EfkObject::SetEffect(::Effekseer::Effect *& aEffect)
 
 void Comfort::EfkObject::SetManager(EfkManager * aManager)
 {
-	mParentManager = aManager->GetManager();
+	mParentManager = aManager;
 }
 
 void Comfort::EfkObject::SetPosition(const::Effekseer::Vector3D & aPosition)
@@ -215,14 +279,31 @@ void Comfort::EfkObject::AddPosition(const::Effekseer::Vector3D & aPosition)
 	mPosition += aPosition;
 }
 
-void Comfort::EfkObject::Play()
+
+
+bool Comfort::EfkObject::IsPlaying()
 {
-	mHandle = mParentManager->Play(mEffect, mPosition.X, mPosition.Y, mPosition.Z);
+	return mParentManager->mManager->GetInstanceCount(mHandle) != 0;
 }
 
-void Comfort::EfkObject::Stop()
+::Effekseer::Vector3D * Comfort::EfkObject::GetPosition()
 {
-	mParentManager->StopEffect(mHandle);
+	return &mPosition;
+}
+
+::Effekseer::Effect * Comfort::EfkObject::GetEffect()
+{
+	return mEffect;
+}
+
+void Comfort::EfkObject::SetHandle(::Effekseer::Handle aHandle)
+{
+	mHandle = aHandle;
+}
+
+::Effekseer::Handle Comfort::EfkObject::GetHandle()
+{
+	return mHandle;
 }
 
 void Comfort::EfkRenderer::Initialize(ID3D11Device *& aDevice, ID3D11DeviceContext *& aDeviceContext, const int aDrawMax)
